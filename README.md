@@ -1,6 +1,6 @@
 # AzureTTVChat
 
-AzureTTVChat Chat is a Python Script that gives a random twitch chatter a tts voice.
+AzureTTVChat is a Python Script that gives a random twitch chatter a tts voice.
 
 ## Installation
 
