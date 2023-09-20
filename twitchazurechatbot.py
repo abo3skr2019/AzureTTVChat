@@ -49,9 +49,7 @@ class Bot(commands.Bot):
         if self.ready_to_process_messages and self.selected_chatter is not None:
             if message.author.name == self.selected_chatter:
                 await asyncio.to_thread(synthesizer_with_style, message.content)
-        else:
-        # If not processing messages, allow messages to be processed as commands
-            await self.handle_commands(message)
+        await self.handle_commands(message)
 
         
 
