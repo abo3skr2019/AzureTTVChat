@@ -11,11 +11,11 @@ import keyboard
 class Bot(commands.Bot):
 
     def __init__(self) -> None:
-        super().__init__(token=os.environ.get('TWITCH_TOKEN'), prefix=os.environ.get('PREFIX'), channel=[os.environ.get('TWITCH_CHANNEL')])
+        super().__init__(token=os.environ.get('TWITCH_TOKEN'), prefix=os.environ.get('PREFIX'),initial_channels=[os.environ.get('TWITCH_CHANNEL')])
         self.playing_chatters: list[str] = [] 
         self.selected_chatter: str | None = None
         self.ready_to_process_messages = False
-        keyboard.on_press_key('KEYPRESS', self.handle_key)
+        keyboard.add_hotkey(os.environ.get('KEYPRESS'), self.handle_key)
 
 
     async def event_ready(self) -> None:
@@ -31,7 +31,7 @@ class Bot(commands.Bot):
 
     async def choose(self):
         print("Choose invoke")
-        channel = self.get_channel(channel)
+        channel = self.get_channel(os.environ.get('TWITCH_CHANNEL'))
         if self.playing_chatters:
             self.selected_chatter = random.choice(self.playing_chatters)
         
@@ -69,48 +69,20 @@ def extract_parentheses(text):
 
 def synthesizer_with_style(chatmessage):
     speech_config = speechsdk.SpeechConfig(subscription=os.environ.get('SPEECH_KEY'), region=os.environ.get('SPEECH_REGION'))
-    audio_config = speechsdk.audio.AudioOutputConfig(device_name="{0.0.0.00000000}.{f6aeced4-ff02-42f6-9faf-946d2911aba3}")
-    speech_config.speech_synthesis_voice_name = 'en-US-DavisbaNeural'
+    audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
+    speech_config.speech_synthesis_voice_name = 'en-US-DavisNeural'
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
 
-    default_voice = open("default.xml", "r").read()
-    angry = open("angry.xml", "r").read()
-    cheerful = open("cheerful.xml", "r").read()
-    excited = open("excited.xml", "r").read()
-    sad = open("sad.xml", "r").read()
-    friendly = open("friendly.xml", "r").read()
-    hopeful = open("hopeful.xml", "r").read()
-    shouting = open("shouting.xml", "r").read()
-    whispering = open("whispering.xml", "r").read()
-    terrified = open("terrified.xml", "r").read()
-    unfriendly = open("unfriendly.xml", "r").read()
-
     styleinput, twitch_text = extract_parentheses(chatmessage)
-    
-    if styleinput.lower() == "angry":
-        style = angry
-    elif styleinput.lower() == "cheerful":
-        style = cheerful
-    elif styleinput.lower() == "excited":
-        style = excited
-    elif styleinput.lower() == "sad":
-        style = sad
-    elif styleinput.lower() == "friendly":
-        style = friendly
-    elif styleinput.lower() == "hopeful":
-        style = hopeful
-    elif styleinput.lower() == "shouting" :
-        style = shouting
-    elif styleinput.lower() == "whispering":
-        style = whispering
-    elif styleinput.lower() == "terrified":
-        style = terrified
-    elif styleinput.lower() == "unfriendly":
-        style = unfriendly
-    else:
-        style = default_voice
+    styledegree="2"
+    voice = "en-US-DavisNeural"
+    role = "OlderAdultMale"
+    text = (f'<speak xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="http://www.w3.org/2001/mstts" '
+            f'xmlns:emo="http://www.w3.org/2009/10/emotionml" version="1.0" xml:lang="en-US"><voice name="{voice}"><s '
+            f'/><mstts:express-as style="{styleinput}" styledegree="{styledegree}" role="{role}">{twitch_text}'
+            f'</mstts:express-as><s /></voice></speak>')
 
-    text = style + twitch_text + "</mstts:express-as><s /></voice></speak>"
+
     speech_synthesis_result = speech_synthesizer.speak_ssml_async(text).get()
 
     if speech_synthesis_result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
