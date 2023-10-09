@@ -72,8 +72,8 @@ def synthesizer_with_style(chatmessage):
     audio_config = speechsdk.audio.AudioOutputConfig(use_default_speaker=True)
     speech_config.speech_synthesis_voice_name = 'en-US-DavisNeural'
     speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=speech_config, audio_config=audio_config)
-
     styleinput, twitch_text = extract_parentheses(chatmessage)
+    styleinput = styleinput.lower()
     styledegree="2"
     voice = "en-US-DavisNeural"
     role = "OlderAdultMale"
