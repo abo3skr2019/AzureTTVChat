@@ -127,13 +127,8 @@ def get_messages():
 
 
 
-# Define a route to display a moderation page
-
 if __name__ == '__main__':
-    # Run your Flask app alongside your Twitch bot
 
-
-    # Run the Flask app in a separate thread
     thread = threading.Thread(target=app.run)
     thread.daemon = True
     thread.start()
