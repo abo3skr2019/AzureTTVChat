@@ -6,10 +6,16 @@ import azure.cognitiveservices.speech as speechsdk
 import re
 import asyncio
 import keyboard
+from flask import Flask, render_template, request, redirect
+import threading
+from flask import jsonify
 
 
+
+
+app = Flask(__name__)
+moderation_queue = []
 class Bot(commands.Bot):
-
     def __init__(self) -> None:
         super().__init__(token=os.environ.get('TWITCH_TOKEN'), prefix=os.environ.get('PREFIX'),initial_channels=[os.environ.get('TWITCH_CHANNEL')])
         self.playing_chatters: list[str] = [] 
@@ -48,7 +54,7 @@ class Bot(commands.Bot):
                 return
         if self.ready_to_process_messages and self.selected_chatter is not None:
             if message.author.name == self.selected_chatter:
-                await asyncio.to_thread(synthesizer_with_style, message.content)
+                moderation_queue.append(message.content)
         await self.handle_commands(message)
 
         
@@ -65,7 +71,7 @@ def extract_parentheses(text):
         text = text.replace(match.group(0), '')
         return inside_parentheses, text
     else:
-        return None, text
+        return "default", text
 
 def synthesizer_with_style(chatmessage):
     speech_config = speechsdk.SpeechConfig(subscription=os.environ.get('SPEECH_KEY'), region=os.environ.get('SPEECH_REGION'))
@@ -95,7 +101,42 @@ def synthesizer_with_style(chatmessage):
                 print("Error details: {}".format(cancellation_details.error_details))
                 print("Did you set the speech resource key and region values?")
 
+@app.route('/', methods=['GET', 'POST'])
+def moderation():
+    if request.method == 'POST':
+        if 'allow' in request.form:
+            if moderation_queue:
+            # Handle message approval
+                message = moderation_queue.pop(0)  # Remove the first message from the queue
+                if message is not None:
+                    synthesizer_with_style(message)
+        elif 'deny' in request.form and moderation_queue:
+            # Handle message denial
+                moderation_queue.pop(0)  # Remove the first message from the queue without processing
+        return redirect('/')
+
+    return render_template('moderation.html')
+
+@app.route('/get_messages', methods=['GET'])
+def get_messages():
+    if moderation_queue:
+        message = moderation_queue[0]
+    else:
+        message = None
+    return jsonify(message=message)
 
 
-bot = Bot()
-bot.run()
+
+# Define a route to display a moderation page
+
+if __name__ == '__main__':
+    # Run your Flask app alongside your Twitch bot
+
+
+    # Run the Flask app in a separate thread
+    thread = threading.Thread(target=app.run)
+    thread.daemon = True
+    thread.start()
+    
+    bot = Bot()
+    bot.run()

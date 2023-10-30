@@ -8,6 +8,7 @@ twitchio = "*"
 azure-cognitiveservices-speech = "*"
 asyncio = "*"
 keyboard = "*"
+flask = {extras = ["async"], version = "*"}
 
 [dev-packages]
 
