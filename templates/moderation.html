@@ -2,92 +2,26 @@
 <html lang="en">
 <head>
     <title>Moderation</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            background-color: #232323; /* Dark gray background color */
-            color: #f1f1f1; /* Light gray text color for the default mode */
-        }
-        .container {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .message {
-            background-color: #444; /* Dark gray background color */
-            padding: 20px;
-            border: 1px solid #ccc;
-            margin-bottom: 20px;
-            color: #f1f1f1; /* Light gray text color for the default mode */
-        }
-        .button-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-top: 20px; /* Add margin to separate the buttons from "Back to Index" */
-        }
-        .button {
-            background-color: #6441A4; /* Twitch purple for buttons */
-            color: #fff;
-            padding: 10px 20px;
-            border: none;
-            cursor: pointer;
-            margin: 5px 10px; /* Added margin to create space between the buttons */
-        }
-        .button:hover {
-            background-color: #552c7f; /* Slightly darker purple on hover */
-        }
-        .no-message {
-            background-color: #444; /* Dark gray background color */
-            padding: 20px;
-            border: 1px solid #ccc;
-            color: #f1f1f1; /* Light gray text color for the default mode */
-        }
-        a {
-            text-decoration: none;
-            color: #6441A4; /* Twitch purple for links */
-        }
-    </style>
+    <link rel="stylesheet" href="styles.css"> <!-- Link to an external CSS file -->
 </head>
 <body>
-    <div class="container">
+    <header>
+        <h1>Moderation</h1>
+    </header>
+    <main class="container">
         <div id="message-container">
             <!-- Messages will be added here dynamically via JavaScript -->
         </div>
         <div class="button-container">
             <form method="post" id="moderation-form">
                 <button type="submit" name="allow" class="button">Allow</button>
-                <button type="submit" name="deny" class="button" style="margin-bottom: 20px;">Deny</button>
+                <button type="submit" name="deny" class="button">Deny</button>
             </form>
         </div>
-    </div>
-
-    <script>
-        function updateMessages() {
-            fetch('/get_messages')
-                .then(response => response.json())
-                .then(data => {
-                    const messageContainer = document.getElementById('message-container');
-                    messageContainer.innerHTML = '';
-
-                    if (data.message) {
-                        const messageDiv = document.createElement('div');
-                        messageDiv.className = 'message';
-                        messageDiv.innerHTML = '<p>' + data.message + '</p>';
-                        messageContainer.appendChild(messageDiv);
-                    } else {
-                        const noMessageDiv = document.createElement('div');
-                        noMessageDiv.className = 'no-message';
-                        noMessageDiv.innerHTML = '<p>No messages for moderation.</p>';
-                        messageContainer.appendChild(noMessageDiv);
-                    }
-                })
-                .catch(error => console.error(error));
-        }
-
-        // Periodically update messages every 1 seconds (adjust as needed)
-        setInterval(updateMessages, 1000);
-    </script>
+    </main>
+    <footer>
+        <p>No messages for moderation.</p>
+    </footer>
+    <script src="moderation.js"></script> <!-- Link to an external JavaScript file -->
 </body>
 </html>
