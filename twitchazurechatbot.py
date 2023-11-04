@@ -1,3 +1,6 @@
+import requests
+import webbrowser
+import time
 import twitchio
 from twitchio.ext import commands
 import random
@@ -6,15 +9,45 @@ import azure.cognitiveservices.speech as speechsdk
 import re
 import asyncio
 import keyboard
-from flask import Flask, render_template, request, redirect
+from flask import Flask, render_template, request, redirect , jsonify
 import threading
-from flask import jsonify
+from flask_socketio import SocketIO, emit
 
 
+CLIENT_ID = os.environ.get('CLIENT_ID')
+CLIENT_SECRET = os.environ.get('CLIENT_SECRET')
+REDIRECT_URI = 'http://localhost:5000/tokenauth'
 
+def get_twitch_auth_url():
+    return f"https://id.twitch.tv/oauth2/authorize?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}&response_type=code&scope=chat:read+chat:edit"
+
+def open_auth_url():
+    webbrowser.open(get_twitch_auth_url())
+
+def get_auth_token(code):
+    data = {
+        'client_id': CLIENT_ID,
+        'client_secret': CLIENT_SECRET,
+        'code': code,
+        'grant_type': 'authorization_code',
+        'redirect_uri': REDIRECT_URI
+    }
+    response = requests.post('https://id.twitch.tv/oauth2/token', data=data)
+    return response.json()['access_token']
 
 app = Flask(__name__)
+socketio = SocketIO(app)
+
 moderation_queue = []
+
+@app.route('/tokenauth')
+def tokenauth():
+    twitch_code = request.args.get('code')
+    token = get_auth_token(twitch_code)
+    write_token_to_env(token)
+    return "Authorization successful"
+
+
 class Bot(commands.Bot):
     def __init__(self) -> None:
         super().__init__(token=os.environ.get('TWITCH_TOKEN'), prefix=os.environ.get('PREFIX'),initial_channels=[os.environ.get('TWITCH_CHANNEL')])
@@ -55,6 +88,7 @@ class Bot(commands.Bot):
         if self.ready_to_process_messages and self.selected_chatter is not None:
             if message.author.name == self.selected_chatter:
                 moderation_queue.append(message.content)
+                socketio.emit('update', moderation_queue)
         await self.handle_commands(message)
 
         
@@ -106,16 +140,17 @@ def moderation():
     if request.method == 'POST':
         if 'allow' in request.form:
             if moderation_queue:
-            # Handle message approval
-                message = moderation_queue.pop(0)  # Remove the first message from the queue
+                message = moderation_queue.pop(0)
                 if message is not None:
                     synthesizer_with_style(message)
+                    socketio.emit('update', moderation_queue)
         elif 'deny' in request.form and moderation_queue:
-            # Handle message denial
-                moderation_queue.pop(0)  # Remove the first message from the queue without processing
+            moderation_queue.pop(0)
+            socketio.emit('update', moderation_queue)
         return redirect('/')
-
     return render_template('moderation.html')
+
+
 
 @app.route('/get_messages', methods=['GET'])
 def get_messages():
@@ -125,6 +160,16 @@ def get_messages():
         message = None
     return jsonify(message=message)
 
+def write_token_to_env(token):
+    with open('.env', 'r') as f:
+        lines = f.readlines()
+
+    with open('.env', 'w') as f:
+        for line in lines:
+            if line.startswith('TWITCH_TOKEN'):
+                f.write(f'TWITCH_TOKEN="{token}"\n')
+            else:
+                f.write(line)
 
 
 if __name__ == '__main__':
@@ -132,6 +177,8 @@ if __name__ == '__main__':
     thread = threading.Thread(target=app.run)
     thread.daemon = True
     thread.start()
-    
+    if not os.environ.get('TWITCH_TOKEN'):
+        open_auth_url()
+        time.sleep(6)
     bot = Bot()
     bot.run()
