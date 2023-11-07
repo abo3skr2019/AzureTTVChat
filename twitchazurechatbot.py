@@ -88,7 +88,7 @@ class Bot(commands.Bot):
         if self.ready_to_process_messages and self.selected_chatter is not None:
             if message.author.name == self.selected_chatter:
                 moderation_queue.append(message.content)
-                socketio.emit('update', moderation_queue)
+                socketio.emit('moderation_queue', moderation_queue)
         await self.handle_commands(message)
 
         
@@ -141,24 +141,27 @@ def moderation():
         if 'allow' in request.form:
             if moderation_queue:
                 message = moderation_queue.pop(0)
+                socketio.emit('moderation_queue', moderation_queue)
+                print("Emitted moderation_queue event with data: ", moderation_queue)
                 if message is not None:
                     synthesizer_with_style(message)
-                    socketio.emit('update', moderation_queue)
         elif 'deny' in request.form and moderation_queue:
             moderation_queue.pop(0)
-            socketio.emit('update', moderation_queue)
+            socketio.emit('moderation_queue', moderation_queue)
+            print("Emitted moderation_queue event with data: ", moderation_queue)
+        
         return redirect('/')
     return render_template('moderation.html')
 
 
 
-@app.route('/get_messages', methods=['GET'])
-def get_messages():
-    if moderation_queue:
-        message = moderation_queue[0]
-    else:
-        message = None
-    return jsonify(message=message)
+#@app.route('/get_messages', methods=['GET'])
+#def get_messages():
+#    if moderation_queue:
+#        message = moderation_queue[0]
+#    else:
+#        message = None
+#    return jsonify(message=message)
 
 def write_token_to_env(token):
     with open('.env', 'r') as f:
@@ -179,6 +182,7 @@ if __name__ == '__main__':
     thread.start()
     if not os.environ.get('TWITCH_TOKEN'):
         open_auth_url()
-        time.sleep(6)
+        time.sleep(3)    
+    time.sleep(3)
     bot = Bot()
     bot.run()
