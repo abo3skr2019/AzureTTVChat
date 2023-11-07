@@ -7,8 +7,16 @@ const messageContainer = document.getElementById("message-container");
 socket.on("moderation_queue", (moderation_queue) => 
 {
     console.log("Received moderation_queue event with data: ", moderation_queue);
-    messageContainer.innerHTML = moderation_queue.map(message => `<div>${message}</div>`).join("");
+    const noMessagesDiv = document.getElementById("no-messages");
+    if (moderation_queue.length === 0) {
+        noMessagesDiv.style.display = "block";
+        messageContainer.innerHTML = "";
+    } else {
+        noMessagesDiv.style.display = "none";
+        messageContainer.innerHTML = moderation_queue.map(message => `<div class="message">${message}</div>`).join("");
+    }
 });
+
 document.getElementById("moderation-form").addEventListener("submit", function(event){
     event.preventDefault();
   
@@ -26,4 +34,4 @@ document.getElementById("moderation-form").addEventListener("submit", function(e
     }).catch(error => {
       console.error(error);
     });
-  });
+});
