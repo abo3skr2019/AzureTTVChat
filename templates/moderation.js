@@ -1,4 +1,4 @@
-var socket = io.connect('http://127.0.0.1:5000'); // assuming you have initialized the socket connection
+const socket = io.connect('http://127.0.0.1:5000'); // assuming you have initialized the socket connection
 
 // assuming you have a div with id "message-container"
 const messageContainer = document.getElementById("message-container");
