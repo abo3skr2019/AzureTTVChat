@@ -1,7 +1,7 @@
 import requests
 import webbrowser
-import time
 import twitchio
+from twitchio.errors import AuthenticationError
 from twitchio.ext import commands
 import random
 import os
@@ -9,9 +9,11 @@ import azure.cognitiveservices.speech as speechsdk
 import re
 import asyncio
 import keyboard
-from flask import Flask, render_template, request, redirect, jsonify
-import threading
-from flask_socketio import SocketIO, emit
+from quart import Quart, render_template, request, redirect, jsonify
+from quart import websocket
+import json
+from hypercorn.asyncio import serve
+from hypercorn.config import Config
 
 
 CLIENT_ID = os.environ.get("CLIENT_ID")
@@ -39,14 +41,15 @@ def get_auth_token(code):
     return response.json()["access_token"]
 
 
-app = Flask(__name__)
-socketio = SocketIO(app)
+app = Quart(__name__, static_folder="static", template_folder="templates")
 
 moderation_queue = []
+authfin = False
 
 
 @app.route("/tokenauth")
-def tokenauth():
+async def tokenauth():
+    global authfin
     twitch_code = request.args.get("code")
     token = get_auth_token(twitch_code)
     write_token_to_env(token)
@@ -87,7 +90,7 @@ class Bot(commands.Bot):
             await channel.send("No users have used the !play command yet.")
 
     def handle_key(self):
-        asyncio.run_coroutine_threadsafe(self.choose(), self.loop)
+        asyncio.create_task(self.choose())
 
     async def event_message(self, message: twitchio.Message):
         if message.echo:
@@ -95,7 +98,8 @@ class Bot(commands.Bot):
         if self.ready_to_process_messages and self.selected_chatter is not None:
             if message.author.name == self.selected_chatter:
                 moderation_queue.append(message.content)
-                socketio.emit("moderation_queue", moderation_queue)
+                with open("moderation_queue.json", "w") as f:
+                    json.dump(moderation_queue, f)
         await self.handle_commands(message)
 
 
@@ -150,34 +154,28 @@ def synthesizer_with_style(chatmessage):
 
 
 @app.route("/", methods=["GET", "POST"])
-def moderation():
+async def moderation():
     if request.method == "POST":
         if "allow" in request.form:
             if moderation_queue:
                 message = moderation_queue.pop(0)
-                socketio.emit("moderation_queue", moderation_queue)
-                print("Emitted moderation_queue event with data: ", moderation_queue)
                 if message is not None:
                     synthesizer_with_style(message)
         elif "deny" in request.form and moderation_queue:
             moderation_queue.pop(0)
-            socketio.emit("moderation_queue", moderation_queue)
-            print("Emitted moderation_queue event with data: ", moderation_queue)
 
         return redirect("/")
-    return render_template("moderation.html")
+    return await render_template("moderation.html")
 
 
-# @app.route('/get_messages', methods=['GET'])
-# def get_messages():
-#    if moderation_queue:
-#        message = moderation_queue[0]
-#    else:
-#        message = None
-#    return jsonify(message=message)
+@app.websocket("/ws")
+async def ws():
+    while True:
+        await websocket.send(json.dumps(moderation_queue))
 
 
 def write_token_to_env(token):
+    global authfin
     with open(".env", "r") as f:
         lines = f.readlines()
 
@@ -185,17 +183,43 @@ def write_token_to_env(token):
         for line in lines:
             if line.startswith("TWITCH_TOKEN"):
                 f.write(f'TWITCH_TOKEN="{token}"\n')
+                authfin = True
             else:
                 f.write(line)
 
 
-if __name__ == "__main__":
-    thread = threading.Thread(target=app.run)
-    thread.daemon = True
-    thread.start()
-    if not os.environ.get("TWITCH_TOKEN"):
+async def handleauth():
+    global authfin
+    if not authfin:
+        print("AUTH ERROR")
         open_auth_url()
-        time.sleep(3)
-    time.sleep(3)
-    bot = Bot()
-    bot.run()
+        while not authfin:
+            await asyncio.sleep(0.25)
+            if authfin:
+                break
+
+
+async def run_bot():
+    while True:
+        if not authfin:
+            await handleauth()
+            continue
+        try:
+            bot = Bot()
+            await bot.start()
+        except AuthenticationError:
+            await handleauth()
+
+
+async def run_app():
+    config = Config()
+    config.bind = ["localhost:5000"]
+    await serve(app, config)
+
+
+async def run_app_and_bot():
+    await asyncio.gather(run_app(), run_bot(), return_exceptions=True)
+
+
+if __name__ == "__main__":
+    asyncio.run(run_app_and_bot())
