@@ -17,7 +17,7 @@ this will install the packages specified in the **Pipfile**.
 ## Usage
 first fill the environment file with your data
 ```env
-TWITCH_TOKEN=             #oauthtoken you can get a test one at twitchtokengenerator.com
+TWITCH_TOKEN=             #Don't touch code will generate just restart the script
 TWITCH_CHANNEL=           #your twitch channel
 PREFIX=                   #prefix of command play
 SPEECH_KEY=               #key from speech studio
